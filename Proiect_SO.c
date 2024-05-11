@@ -4,7 +4,8 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h> 
+#include <unistd.h>
+#include <sys/wait.h>  // Pentru waitpid() și macro-urile asociate statusului
 
 #define MAX_DIRECTORIES 10
 #define MAX_PATH 1024
@@ -34,14 +35,16 @@ void read_directory(const char *dirname, FILE *file) {
             read_directory(path, file);
         }
     }
+    
     closedir(dir);
 }
 
 int main(int argc, char *argv[]) {
     int opt;
     char output_dir[MAX_PATH] = "./"; 
-    char snapshot_path[MAX_PATH * 2]; // Mărire dimensiune buffer
+    char snapshot_path[MAX_PATH * 2];
     int directory_count = 0;
+    pid_t pid;
 
     while ((opt = getopt(argc, argv, "o:")) != -1) {
         switch (opt) {
@@ -62,21 +65,28 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Expected argument after options\n");
         exit(EXIT_FAILURE);
     }
-    int Snapshot_cnt = 0;
     for (int i = optind; i < argc && directory_count < MAX_DIRECTORIES; i++, directory_count++) {
-        int needed = snprintf(snapshot_path, sizeof(snapshot_path), "%s/Snapshot_%d.txt", output_dir, ++Snapshot_cnt);
-        if (needed >= sizeof(snapshot_path)) {
-            fprintf(stderr, "Snapshot path is too long and has been truncated. It might not work correctly.\n");
-            continue; 
+        pid = fork();
+        if (pid == 0) { // Proces copil
+            snprintf(snapshot_path, sizeof(snapshot_path), "%s/Snapshot_%d.txt", output_dir, i);
+            FILE *file = fopen(snapshot_path, "w");
+            if (file == NULL) {
+                perror("Failed to create snapshot file");
+                exit(EXIT_FAILURE);
+            }
+            read_directory(argv[i], file);
+            printf("Snapshot for Directory %d created successfully\n",i);
+            fclose(file);
+            exit(EXIT_SUCCESS);  // Terminarea copilului cu succes
         }
-        
-        FILE *file = fopen(snapshot_path, "w");
-        if (file == NULL) {
-            perror("Failed to create snapshot file");
-            continue; 
+    }
+    printf("\n");
+    int status;
+    pid_t child_pid;
+    while ((child_pid = waitpid(-1, &status, 0)) > 0) {  // Așteptăm terminarea fiecărui copil
+        if (WIFEXITED(status)) {
+            printf("Procesul copil cu PID-ul %d s-a incheiat cu codul %d.\n", child_pid, WEXITSTATUS(status));
         }
-        read_directory(argv[i], file);
-        fclose(file);
     }
 
     return EXIT_SUCCESS;
