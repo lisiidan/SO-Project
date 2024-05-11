@@ -1,0 +1,7 @@
+Director_Principal//Fisier4.txt, 33, 1715425117
+Director_Principal//Snapshot.txt, 380, 1715426064
+Director_Principal//Subdirector1, 4096, 1715425080
+Director_Principal//Subdirector1/Fisier1.txt, 7, 1715425060
+Director_Principal//Subdirector1/Fisier2.txt, 25, 1715425076
+Director_Principal//Subdirector2, 4096, 1715425103
+Director_Principal//Subdirector2/Fisier3.txt, 19, 1715425103

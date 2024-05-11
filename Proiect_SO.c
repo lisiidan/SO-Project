@@ -1,21 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <dirent.h>  // Pentru navigarea in directoare
-#include <sys/stat.h> // Pentru metadatele fisierelor
+#include <dirent.h>
+#include <sys/stat.h>
 #include <string.h>
-#include <time.h> // Pentru timestamp
+#include <time.h>
+#include <unistd.h> 
 
-typedef struct {
-    char path[1024];
-    long size; // dimensiunea fisierului
-    time_t last_modified; // data ultimei modificari
-} FileData;
+#define MAX_DIRECTORIES 10
+#define MAX_PATH 1024
 
 void read_directory(const char *dirname, FILE *file) {
     DIR *dir;
     struct dirent *entry;
     struct stat file_stat;
-    char path[1024];
+    char path[MAX_PATH];
 
     dir = opendir(dirname);
     if (dir == NULL) {
@@ -40,23 +38,46 @@ void read_directory(const char *dirname, FILE *file) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <directory>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-    
-    char snapshot_path[1024];
-    snprintf(snapshot_path, sizeof(snapshot_path), "%s/Snapshot.txt", argv[1]);
+    int opt;
+    char output_dir[MAX_PATH] = "./"; 
+    char snapshot_path[MAX_PATH * 2]; // Mărire dimensiune buffer
+    int directory_count = 0;
 
-    FILE *file = fopen(snapshot_path, "w");
-    if (file == NULL) {
-        perror("Failed to create file");
-        return EXIT_FAILURE;
+    while ((opt = getopt(argc, argv, "o:")) != -1) {
+        switch (opt) {
+            case 'o':
+                if (strlen(optarg) >= MAX_PATH) {
+                    fprintf(stderr, "Output directory path is too long\n");
+                    return EXIT_FAILURE;
+                }
+                strcpy(output_dir, optarg);
+                break;
+            default:
+                fprintf(stderr, "Usage: %s -o <output_dir> <dir1> <dir2> ... <dir10>\n", argv[0]);
+                exit(EXIT_FAILURE);
+        }
     }
 
-    read_directory(argv[1], file);
-    fclose(file);
+    if (optind >= argc) {
+        fprintf(stderr, "Expected argument after options\n");
+        exit(EXIT_FAILURE);
+    }
+    int Snapshot_cnt = 0;
+    for (int i = optind; i < argc && directory_count < MAX_DIRECTORIES; i++, directory_count++) {
+        int needed = snprintf(snapshot_path, sizeof(snapshot_path), "%s/Snapshot_%d.txt", output_dir, ++Snapshot_cnt);
+        if (needed >= sizeof(snapshot_path)) {
+            fprintf(stderr, "Snapshot path is too long and has been truncated. It might not work correctly.\n");
+            continue; 
+        }
+        
+        FILE *file = fopen(snapshot_path, "w");
+        if (file == NULL) {
+            perror("Failed to create snapshot file");
+            continue; 
+        }
+        read_directory(argv[i], file);
+        fclose(file);
+    }
 
     return EXIT_SUCCESS;
 }
-
